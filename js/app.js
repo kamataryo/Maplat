@@ -1,5 +1,5 @@
-define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap'],
-    function(Promise, ol, sprintf, i18n, i18nxhr, swiper, bsn) {
+define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap', 'history'],
+    function(Promise, ol, sprintf, i18n, i18nxhr, swiper, bsn, History) {
     (function() {
         var mapDiv = document.getElementById('map_div');
         var lastTouch = 0;
@@ -182,26 +182,15 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
         return nodes;
     };
     return function(appOption) {
-        var mapType = appOption.stroly ? 'stroly' : appOption.drumsey ? 'drumsey' : appOption.warper ? 'warper' : null;
-        var appid = appOption.appid || (mapType ? appOption[mapType] : 'sample');
-        var mobileIF = false;
-        var noUI = appOption.no_ui || false;
-        if (appOption.mobile_if) {
-            mobileIF = true;
-            noUI = true;
-            appOption.debug = true;
-        }
-        var logger = new Logger(appOption.debug ? LoggerLevel.ALL : LoggerLevel.INFO);
-        var lang = appOption.lang || 'ja';
-        var overlay = appOption.overlay || false;
-        var noRotate = appOption.no_rotate || false;
-        if (overlay) {
+        var history = new History(appOption);
+        var logger = new Logger(history.debug ? LoggerLevel.ALL : LoggerLevel.INFO);
+        if (history.overlay) {
             document.querySelector('body').classList.add('with-opacity');
         }
-        if (noUI) {
+        if (history.noUI) {
             document.querySelector('.swiper-container').style.display = 'none';
         }
-        var appPromise = mapType ?
+        var appPromise = history.mapType ?
             new Promise(function(resolve, reject) {
                 var appData = {
                     fake_gps: false,
@@ -210,8 +199,8 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                         'gsi',
                         'osm',
                         {
-                            mapID: appid,
-                            maptype: mapType,
+                            mapID: history.appid,
+                            maptype: history.mapType,
                             algorythm: 'tin'
                         }
                     ],
@@ -220,7 +209,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                 resolve(appData);
             }) : new Promise(function(resolve, reject) {
                 var xhr = new XMLHttpRequest();
-                xhr.open('GET', 'json/' + appid + '.json', true);
+                xhr.open('GET', 'json/' + history.appid + '.json', true);
                 xhr.responseType = 'json';
 
                 xhr.onload = function(e) {
@@ -235,7 +224,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
 
         var i18nPromise = new Promise(function(resolve, reject) {
             i18n.use(i18nxhr).init({
-                lng: lang,
+                lng: history.lang,
                 fallbackLng: ['en'],
                 backend: {
                     loadPath: 'locales/{{lng}}/{{ns}}.json'
@@ -263,7 +252,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
             ol.source.HistMap.setI18n(i18n, t);
 
             document.querySelector('#all').style.display = null;
-            if (!noUI) {
+            if (!history.noUI) {
                 var lwModalElm = document.getElementById('loadWait');
                 var lwModal = new bsn.Modal(lwModalElm);
                 lwModal.show();
@@ -301,9 +290,9 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
             var homePos = appData.home_position;
             var defZoom = appData.default_zoom;
             var appName = appData.app_name;
-            var fakeGps = appOption.fake ? appData.fake_gps : false;
-            var fakeCenter = appOption.fake ? appData.fake_center : false;
-            var fakeRadius = appOption.fake ? appData.fake_radius : false;
+            var fakeGps = history.fake ? appData.fake_gps : false;
+            var fakeCenter = history.fake ? appData.fake_center : false;
+            var fakeRadius = history.fake ? appData.fake_radius : false;
             var currentPosition = null;
             var backMap = null;
             var mapDiv = 'map_div';
@@ -314,14 +303,14 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
             elem.insertBefore(newElem, elem.firstChild);
             var mapObject = new ol.MaplatMap({
                 div: frontDiv,
-                off_control: noUI ? true : false,
-                off_rotation: noRotate ? true : false
+                off_control: history.noUI ? true : false,
+                off_rotation: history.noRotate ? true : false
             });
             var sliderCommon = mapObject.sliderCommon;
             sliderCommon.setEnable(false);
 
             var backDiv = null;
-            if (overlay) {
+            if (history.overlay) {
                 backDiv = mapDiv + '_back';
                 var newElem = createElement('<div id="' + backDiv + '" class="map" style="top:0; left:0; right:0; bottom:0; ' +
                     'position:absolute;"></div>')[0];
@@ -332,7 +321,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                     div: backDiv
                 });
             }
-            if (!noUI) {
+            if (!history.noUI) {
                 var shown = false;
                 mapObject.on('gps_request', function() {
                     shown = true;
@@ -393,13 +382,13 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
             }
 
             return Promise.all(sourcePromise).then(function(sources) {
-                if (!noUI) {
+                if (!history.noUI) {
                     var lwModalElm = document.getElementById('loadWait');
                     var lwModal = new bsn.Modal(lwModalElm);
                     lwModal.hide();
                 }
 
-                if (mapType) {
+                if (history.mapType) {
                     var index = sources.length - 1;
                     homePos = sources[index].home_position;
                     defZoom = sources[index].merc_zoom;
@@ -410,7 +399,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                 var cacheHash = {};
                 for (var i=0; i<sources.length; i++) {
                     var source = sources[i];
-                    if (!noUI) {
+                    if (!history.noUI) {
                         if (source instanceof ol.source.NowMap && !(source instanceof ol.source.TmsMap)) {
                             baseSwiper.appendSlide('<div class="swiper-slide" data="' + source.sourceID + '">' +
                                 '<img crossorigin="anonymous" src="' + source.thumbnail + '"><div>' + source.label + '</div></div>');
@@ -419,7 +408,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                                 '<img crossorigin="anonymous" src="' + source.thumbnail + '"><div>' + source.label + '</div></div>');
                         }
                     }
-                    if (mapType) {
+                    if (history.mapType) {
                         source.home_position = homePos;
                         source.merc_zoom = defZoom;
                     }
@@ -427,7 +416,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                     cache.push(source);
                     cacheHash[source.sourceID] = source;
                 }
-                if (!noUI) {
+                if (!history.noUI) {
                     baseSwiper.on;
                     overlaySwiper.on;
                     //swiper.setSlideIndex(sources.length - 1);
@@ -581,13 +570,14 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                                     backMap.renderSync();
                                 });
                             }
+                            history.navigateURL();
                         });
                     }
                 }
                 changeMapCache = changeMap;
 
                 function showInfo(data) {
-                    if (mobileIF) {
+                    if (history.mobileIF) {
                         logger.debug(data);
                         var json = JSON.stringify(data);
                         jsBridge.callWeb2App('poiClick', json);
@@ -691,7 +681,7 @@ define(['aigle', 'histmap', 'sprintf', 'i18n', 'i18nxhr', 'swiper', 'bootstrap']
                     }
                 });
 
-                if (mobileIF) return {
+                if (history.mobileIF) return {
                     'setMarker': function(dataStr) {
                         logger.debug(dataStr);
                         var data = JSON.parse(dataStr);
