@@ -201,6 +201,8 @@
                 var bbox = [];
                 if (self.wh) {
                     bbox = [
+                        //[self.wh[0] * -0.25, self.wh[1] * -0.25], [self.wh[0] * 1.25, self.wh[1] * -0.25],
+                        //[self.wh[0] * -0.25, self.wh[1] * 1.25], [self.wh[0] * 1.25, self.wh[1] * 1.25]
                         [0, 0], [self.wh[0], 0],
                         [0, self.wh[1]], [self.wh[0], self.wh[1]]
                     ];
@@ -354,6 +356,7 @@
                 var verticesSet = orthant.map(function(delta, index) {
                     var forVertex = bbox[index];
                     var forDelta = [forVertex[0] - centroid.forw[0], forVertex[1] - centroid.forw[1]];
+                    var forExVertex = [forDelta[0] * 1.2 + centroid.forw[0], forDelta[1] * 1.2 + centroid.forw[1]];
                     var forDistance = Math.sqrt(Math.pow(forDelta[0], 2) + Math.pow(forDelta[1], 2));
                     var bakDistance = forDistance / delta[0];
 
@@ -362,8 +365,10 @@
 
                     var bakVertex = [centroid.bakw[0] + bakDistance * Math.sin(bakTheta),
                         centroid.bakw[1] - bakDistance * Math.cos(bakTheta)];
+                    var baxExVertex = [centroid.bakw[0] + bakDistance * 1.2 * Math.sin(bakTheta),
+                        centroid.bakw[1] - bakDistance * 1.2 * Math.cos(bakTheta)];
 
-                    return {forw: forVertex, bakw: bakVertex};
+                    return {forw: [forVertex, forExVertex], bakw: [bakVertex, baxExVertex]};
                 });
                 var swap = verticesSet[2];
                 verticesSet[2] = verticesSet[3];
@@ -372,7 +377,7 @@
                 var expandRate = [1, 1, 1, 1];
                 for(var i = 0; i < 4; i++) {
                     var j = (i + 1) % 4;
-                    var side = turf.lineString([verticesSet[i].bakw, verticesSet[j].bakw]);
+                    var side = turf.lineString([verticesSet[i].bakw[0], verticesSet[j].bakw[0]]);
                     var expands = expandConvex[i];
                     expands.map(function(expand) {
                         var expandLine = turf.lineString([centroid.bakw, expand.bakw]);
@@ -390,9 +395,11 @@
                 }
                 verticesSet = verticesSet.map(function(vertex, index) {
                     var rate = expandRate[index];
-                    var point = [(vertex.bakw[0] - centroid.bakw[0]) * rate + centroid.bakw[0],
-                        (vertex.bakw[1] - centroid.bakw[1]) * rate + centroid.bakw[1]];
-                    return {forw: vertex.forw, bakw: point};
+                    var point = [(vertex.bakw[0][0] - centroid.bakw[0]) * rate + centroid.bakw[0],
+                        (vertex.bakw[0][1] - centroid.bakw[1]) * rate + centroid.bakw[1]];
+                    var pointEx = [(vertex.bakw[0][0] - centroid.bakw[0]) * rate * 1.2 + centroid.bakw[0],
+                        (vertex.bakw[0][1] - centroid.bakw[1]) * rate * 1.2 + centroid.bakw[1]];
+                    return {forw: vertex.forw, bakw: [point, pointEx]};
                 });
                 return [verticesSet, pointsSet];
             }).then(function(prevResults) {
@@ -402,14 +409,20 @@
                 var verticesList = {forw: [], bakw: []};
 
                 for (var i = 0; i < verticesSet.length; i++ ) {
-                    var forVertex = verticesSet[i].forw;
-                    var bakVertex = verticesSet[i].bakw;
-                    var forVertexFt = createPoint(forVertex, bakVertex, 'bbox' + i);
+                    var forVertex = verticesSet[i].forw[0];
+                    var bakVertex = verticesSet[i].bakw[0];
+                    var forExVertex = verticesSet[i].forw[1];
+                    var bakExVertex = verticesSet[i].bakw[1];
+                    var forVertexFt = createPoint(forVertex, bakVertex, 'vtex' + i);
                     var bakVertexFt = counterPoint(forVertexFt);
+                    var forExVertexFt = createPoint(forExVertex, bakExVertex, 'bbox' + i);
+                    var bakExVertexFt = counterPoint(forExVertexFt);
                     pointsSet.forw.features.push(forVertexFt);
                     pointsSet.bakw.features.push(bakVertexFt);
-                    verticesList.forw.push(forVertexFt);
-                    verticesList.bakw.push(bakVertexFt);
+                    pointsSet.forw.features.push(forExVertexFt);
+                    pointsSet.bakw.features.push(bakExVertexFt);
+                    verticesList.forw.push(forExVertexFt);
+                    verticesList.bakw.push(bakExVertexFt);
                 }
 
                 self.pointsSet = pointsSet;
