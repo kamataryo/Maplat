@@ -413,7 +413,7 @@
                 }
 
                 self.pointsSet = pointsSet;
-                self.tins = {forw: rotateVerticesTriangle(turf.tin(pointsSet.forw, 'target'))};
+                self.tins = {forw: rotateVerticesTriangle(convexHullTin(pointsSet.forw, 'target'))};
                 var prom;
                 if (strict == 'strict' || strict == 'auto') {
                     prom = self.calcurateStrictTinAsync();
@@ -422,7 +422,7 @@
                 }
                 return prom.then(function() {
                     if (strict == 'loose' || (strict == 'auto' && self.strict_status == 'strict_error')) {
-                        self.tins.bakw = rotateVerticesTriangle(turf.tin(pointsSet.bakw, 'target'));
+                        self.tins.bakw = rotateVerticesTriangle(convexHullTin(pointsSet.bakw, 'target'));
                         delete self.kinks;
                         self.strict_status = 'loose';
                     }
@@ -514,7 +514,6 @@
         };
 
         function rotateVerticesTriangle(tins) {
-            console.log(tins);
             var features = tins.features;
             for (var i=0; i<features.length; i++) {
                 var feature = features[i];
@@ -827,6 +826,45 @@
                 }).sort().join('-');
                 return index;
             }).sort();
+        }
+
+        function convexHullTin(points, z) {
+            var properties = points.features.reduce(function (prev, curr) {
+                var coords = curr.geometry.coordinates;
+                prev[coords[0] + '--' + coords[1]] = curr.properties;
+                return prev;
+            }, {});
+            var hull = turf.convex(points);
+            var tin = turf.tin(points, z);
+            var mulTin = turf.multiPolygon(tin.features.map(function(tri){ return tri.geometry.coordinates }));
+            var diff = turf.difference(hull, mulTin);
+            if (!diff) return tin;
+            var points;
+            if (diff.geometry.type == 'MultiPolygon') {
+                points = diff.geometry.coordinates.map(function(poly){
+                    var feats = turf.explode(turf.polygon(poly));
+                    feats.features.pop();
+                    feats.features.map(function(point){
+                        var coords = point.geometry.coordinates;
+                        point.properties = properties[coords[0] + '--' + coords[1]];
+                    });
+                    return feats;
+                });
+            } else if (diff.geometry.type == 'Polygon') {
+                var feats = turf.explode(diff);
+                feats.features.pop();
+                feats.features.map(function(point){
+                    var coords = point.geometry.coordinates;
+                    point.properties = properties[coords[0] + '--' + coords[1]];
+                });
+                points = [ feats ];
+            } else {
+                return tin;
+            }
+            console.log(JSON.stringify(points, null, ' '));
+            var tins = points.map(function(point){ return turf.tin(point, 'target'); });
+            console.log(JSON.stringify(tins));
+            return tin;
         }
 
         return Tin;
