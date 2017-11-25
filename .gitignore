@@ -16,3 +16,6 @@ xcuserdata
 *.qgs
 *Backward*.json
 *Forward*.json
+
+# www build
+/bundle.js

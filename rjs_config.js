@@ -1,19 +1,19 @@
 ({
     baseUrl: 'js',
     name: 'config',
-    out: 'js/maplat.js',
+    out: 'bundle.js',
     include: ['require.min'],
     paths: {
-        'i18n': 'i18next.min',
-        'i18nxhr': 'i18nextXHRBackend.min',
         'turf': 'turf_maplat.min',
-        'swiper': 'swiper.min',
         'ol3': 'ol-debug',
         'ol-custom': 'ol-custom',
-        'bootstrap': 'bootstrap-native',
-        'aigle': 'aigle-es5.min',
         'mapshaper': 'mapshaper_maplat',
-        'resize': 'detect-element-resize'
+        'bootstrap': 'vendors/bootstrap-native',
+        'resize': 'vendors/detect-element-resize',
+        'i18n': 'vendors/i18next.min',
+        'i18nxhr': 'vendors/i18nextXHRBackend.min',
+        'aigle': 'vendors/aigle-es5.min',
+        'swiper': 'vendors/swiper.min',
     },
     shim: {
         'i18nxhr': {

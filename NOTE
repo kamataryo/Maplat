@@ -1,0 +1,7 @@
+
+
+```shell
+# before bundle refactor
+$ ruby -e'puts File.size("./js/maplat.js")'
+2048815
+```
